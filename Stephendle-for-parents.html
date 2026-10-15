@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stephendle</title>
+<style>
+:root{--bg:#fffaf0;--fg:#1d1d1f;--tile:#d3d6da;--key:#d3d6da;--g:#538d4e;--y:#b59f3b;--x:#787c7e;--card:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1a17;--fg:#f3efe6;--tile:#3a3a3c;--key:#555;--x:#3a3a3c;--card:#2a2926;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1a17;--fg:#f3efe6;--tile:#3a3a3c;--key:#555;--x:#3a3a3c;--card:#2a2926;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Georgia,'Times New Roman',serif;text-align:center;min-height:100vh}
+h1{margin:14px 0 2px;font-size:30px;letter-spacing:2px}
+.sub{font-size:13px;opacity:.7;margin-bottom:6px}
+#clue{margin:8px 16px;font-style:italic;min-height:40px}
+#msg{min-height:44px;margin:4px 16px;font-weight:bold}
+#board{display:grid;gap:5px;justify-content:center;margin:6px auto}
+.row{display:grid;grid-template-columns:repeat(5,52px);gap:5px}
+.t{width:52px;height:52px;border:2px solid var(--tile);display:flex;align-items:center;justify-content:center;font:bold 26px Arial,sans-serif;text-transform:uppercase}
+.t.f{border-color:var(--x)}
+.t.g{background:var(--g);border-color:var(--g);color:#fff}
+.t.y{background:var(--y);border-color:var(--y);color:#fff}
+.t.x{background:var(--x);border-color:var(--x);color:#fff}
+#kb{margin:10px auto;max-width:500px;padding:0 4px}
+.kr{display:flex;justify-content:center;gap:5px;margin-bottom:5px}
+.k{flex:1;max-width:42px;height:50px;border:0;border-radius:5px;background:var(--key);color:var(--fg);font:bold 14px Arial,sans-serif;cursor:pointer;padding:0}
+.k.w{max-width:64px}
+.k.g{background:var(--g);color:#fff}.k.y{background:var(--y);color:#fff}.k.x{background:var(--x);color:#fff}
+#end{display:none;margin:20px auto;max-width:420px;background:var(--card);border-radius:14px;padding:22px;box-shadow:0 4px 20px #0003}
+#end h2{margin-top:0}
+button.go{font:bold 16px Georgia,serif;padding:10px 20px;border:0;border-radius:8px;background:var(--g);color:#fff;cursor:pointer;margin-top:10px}
+</style></head><body>
+<h1>STEPHENDLE</h1>
+<div class="sub">Round <span id="rn">1</span> of 3 · 6 guesses each · then the big finale</div>
+<div id="clue"></div><div id="msg"></div>
+<div id="board"></div><div id="kb"></div>
+<div id="kq" style="display:none;margin:20px auto;max-width:420px;padding:0 16px"></div>
+<div id="end"></div>
+<div id="fb0" style="margin:30px 20px;font-size:16px"><b>If you only see this title, open the downloaded file in Safari or Chrome.</b><br>In WhatsApp, download the attachment first, then choose Open in browser. The WhatsApp preview may not run the game.</div>
+<script>
+window.onerror=function(m){var e=document.getElementById("msg");if(e)e.textContent="Error: "+m};
+const R=[
+["DADDY","The title you've held for decades, not always said fondly."],
+["STEVE","Today's guest of honour. Hint: look in the mirror."],
+["GAYER","Comparative. Dad has signed off on this roast."]];
+const ROAST=["Bold guess. Wrong, but bold.","Even the dog saw that coming. Wrong.","Close! (It wasn't.)","At 73 you've earned a wrong answer or two.","Did you mean to type that or was it the reading glasses?","That's not a word, that's a cry for help.","Try again. We believe in you. Mostly."];
+const WIN=["First try?! Suspiciously good.","Nailed it. Like a man who's done a lot of crosswords.","Correct! Pass the cake.","Got it. Wisdom of the ages.","Phew. Just in time, old boy."];
+let r=0,row=0,cur="",done=false,score=0,st={};
+const $=id=>document.getElementById(id);
+function build(){
+ const b=$("board");b.innerHTML="";
+ for(let i=0;i<6;i++){const d=document.createElement("div");d.className="row";for(let j=0;j<5;j++){const t=document.createElement("div");t.className="t";d.appendChild(t)}b.appendChild(d)}
+ $("clue").textContent="Clue: "+R[r][1];$("rn").textContent=r+1;$("msg").textContent="";
+ row=0;cur="";done=false;st={};
+ document.querySelectorAll(".k").forEach(k=>k.className=k.className.replace(/ ?[gyx]\b/g,""));
+}
+function makeKb(){
+ const rows=["QWERTYUIOP","ASDFGHJKL","+ZXCVBNM-"];const k=$("kb");
+ rows.forEach(s=>{const d=document.createElement("div");d.className="kr";
+  [...s].forEach(c=>{const b=document.createElement("button");b.className="k"+(c=="+"||c=="-"?" w":"");
+   b.textContent=c=="+"?"ENTER":c=="-"?"⌫":c;b.dataset.c=c;b.onclick=()=>key(c=="+"?"Enter":c=="-"?"Backspace":c);d.appendChild(b)});
+  k.appendChild(d)});
+}
+function draw(){const tiles=$("board").children[row].children;for(let i=0;i<5;i++){tiles[i].textContent=cur[i]||"";tiles[i].classList.toggle("f",!!cur[i])}}
+function key(k){
+ if(done)return;
+ if(k=="Enter"){submit();return}
+ if(k=="Backspace"){cur=cur.slice(0,-1);draw();return}
+ if(/^[a-zA-Z]$/.test(k)&&cur.length<5){cur+=k.toUpperCase();draw()}
+}
+function submit(){
+ if(cur.length<5){$("msg").textContent="Five letters, Stephen. Count them on your fingers.";return}
+ const ans=R[r][0],res=Array(5).fill("x"),pool=[...ans];
+ for(let i=0;i<5;i++)if(cur[i]==ans[i]){res[i]="g";pool[i]=null}
+ for(let i=0;i<5;i++)if(res[i]=="x"){const j=pool.indexOf(cur[i]);if(j>-1){res[i]="y";pool[j]=null}}
+ const tiles=$("board").children[row].children;
+ for(let i=0;i<5;i++){tiles[i].classList.add(res[i]);
+  const p=st[cur[i]];if(!p||(p=="x")||(p=="y"&&res[i]=="g")){st[cur[i]]=res[i]}}
+ document.querySelectorAll(".k").forEach(b=>{const s=st[b.dataset.c];if(s){b.classList.remove("g","y","x");b.classList.add(s)}});
+ if(cur==ans){done=true;score++;$("msg").textContent=WIN[Math.min(row,4)];setTimeout(next,1800);return}
+ row++;cur="";
+ if(row==6){done=true;$("msg").textContent="It was "+ans+". Don't worry, memory goes first. Next!";setTimeout(next,2400);return}
+ $("msg").textContent=ROAST[Math.floor(Math.random()*ROAST.length)];
+}
+function next(){r++;if(r<3){build()}else{krill()}}
+function confetti(){
+ const c=document.createElement("canvas");c.style.cssText="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99";document.body.appendChild(c);
+ const x=c.getContext("2d"),W=c.width=innerWidth,H=c.height=innerHeight;
+ const cols=["#e63946","#f4a261","#e9c46a","#2a9d8f","#4361ee","#c77dff"];
+ const p=Array.from({length:160},()=>({x:Math.random()*W,y:-Math.random()*H,s:5+Math.random()*7,v:2+Math.random()*3.5,w:Math.random()*6.28,r:Math.random()*6,c:cols[Math.floor(Math.random()*cols.length)]}));
+ let t=0;
+ (function f(){x.clearRect(0,0,W,H);t++;
+  p.forEach(q=>{q.y+=q.v;q.w+=.05;q.x+=Math.sin(q.w)*1.5;q.r+=.1;
+   if(q.y>H&&t<600){q.y=-10;q.x=Math.random()*W}
+   x.save();x.translate(q.x,q.y);x.rotate(q.r);x.fillStyle=q.c;x.fillRect(-q.s/2,-q.s/4,q.s,q.s/2);x.restore()});
+  if(t<700)requestAnimationFrame(f);else c.remove()})();
+}
+function finish(){
+ $("board").style.display=$("kb").style.display=$("clue").style.display=$("msg").style.display=$("kq").style.display="none";
+ const lines=["Wordle: "+score+"/3. Final dive depth: "+depth+"m. "+(depth>=500?"Deep sea legend.":depth>=200?"Respectable for a man of your vintage.":"Still shallower than your jokes.")];
+ $("end").style.display="block";
+ $("end").innerHTML="<h2>🎉 Happy 73rd Birthday, Stephen! 🎂</h2><p>"+lines[0]+"</p><p>Seventy-three candles: the first cake that needs a permit from the fire brigade and a stern word from the smoke alarm.</p><p style='font-size:18px;line-height:1.5'>Dad, jokes aside: thank you. You're my inspiration and my hero, and I love you dearly.</p><p style='font-size:18px;line-height:1.5'>I'm so sorry I can't be there with you today. I wish I were.</p><p style='font-size:18px'>Happy birthday.<br>With all my love, Alex ❤️</p><button class='go' onclick='location.reload()'>Play again</button>";
+ $("end").scrollIntoView();confetti();
+}
+const P=[
+{p:"What is Dad most likely to Google?",low:1,x:"Gay porn. (Happy birthday, Dad.)",c:[],d:[],r:[]},
+{p:"What is Dad most likely to order on Amazon?",x:"A shock collar for dogs",c:["book","sock","batter","phone case","charger","tool","cable","shirt","dvd","bulb"],d:["torch","drill","slippers","hat","gloves","kettle","toaster","thermos","knife"],r:["hose","wheelbarrow","detector","pond","walkie","cheese"]},
+{p:"What is Dad most likely to ask?",x:"Help applying 4 coats of paint to a mile of wall at 9am on a Saturday morning.",c:["help","advice","where","what time","can you","money","lift","remote","tea","time"],d:["wifi","password","tv","phone","charger","computer","printer","email","directions"],r:["ladder","spanner"]}];
+let q=0,depth=0;
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
+function tier(i){const s=norm(i);if(s.length<3)return 0;for(const [t,l] of [[100,P[q].r],[40,P[q].d],[10,P[q].c]])if(l.some(k=>s.includes(k)))return t;return 0}
+function krill(){
+ $("board").style.display=$("kb").style.display=$("clue").style.display=$("msg").style.display="none";
+ document.querySelector(".sub").textContent="Finale: One in a Krillion. Rare answers dive deeper.";
+ $("kq").style.display="block";showQ();
+}
+function showQ(){
+ $("kq").innerHTML="<p>Prompt "+(q+1)+" of "+P.length+"</p><h3>"+P[q].p+"</h3><input id='ans' placeholder='Be original...' autocomplete='off' style='font:18px Georgia,serif;padding:10px;width:80%;max-width:320px'><br><button class='go' id='dv'>Dive</button><p id='fb' style='font-weight:bold;min-height:24px'></p><p>Depth: <b>"+depth+"m</b></p>";
+ $("dv").onclick=answer;$("ans").onkeydown=e=>{if(e.key=="Enter")answer()};$("ans").focus();
+}
+function answer(){
+ const v=$("ans").value;if(!norm(v))return;
+ const t=P[q].low?0:tier(v),pts=t||5;depth+=pts*4;
+ const m=P[q].low?"Low points. Cute guess. +5":t==100?"🦐 ONE IN A KRILLION! +100":t==40?"Deep cut. +40":t==10?"Plankton. Everyone says that. +10":"Not on my list, but 5 points for effort. +5";
+ $("fb").innerHTML=m+"<br><br>🏆 The best answer was:<br><i>"+P[q].x+"</i>";
+ $("ans").disabled=true;$("dv").textContent=q<P.length-1?"Next prompt":"Finish";
+ $("dv").onclick=()=>{q++;q<P.length?showQ():finish()};
+}
+document.addEventListener("keydown",e=>{if(e.ctrlKey||e.metaKey)return;key(e.key)});
+try{makeKb();build();if($("board").children.length===6&&$("kb").children.length===3){$("fb0").style.display="none"}}catch(e){$("fb0").style.display="block";$("fb0").innerHTML="<b>The game could not start.</b><br>Please download this file and open it in Safari or Chrome."}
+</script></body></html>
+
